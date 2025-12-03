@@ -9,6 +9,7 @@ import subprocess
 import random
 import yaml
 import os
+import re
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
@@ -41,9 +42,13 @@ class InfraChecker:
         self.demo_mode = demo_mode
         
     def _load_config(self, path: str) -> dict:
-        with open(path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
-    
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f)
+        except Exception:
+            # 설정 파일이 없거나 읽기 실패 시 기본 빈 구조 반환 (에러 방지)
+            return {'check_items': {'os': [], 'kubernetes': [], 'services': []}}
+        
     def _run_command(self, command: str, timeout: int = 30) -> tuple:
         """쉘 명령어 실행"""
         try:
@@ -59,39 +64,49 @@ class InfraChecker:
             return "", "Command timed out", -1
         except Exception as e:
             return "", str(e), -1
-    
+        
     def _check_kubectl_available(self) -> bool:
         """kubectl 사용 가능 여부 확인"""
         if self.demo_mode:
             return True
         stdout, _, returncode = self._run_command("which kubectl")
         return returncode == 0
-    
+        
     def _evaluate_threshold(self, value: str, threshold: float, check_id: str) -> CheckStatus:
-        """임계치 기반 상태 판단"""
+        """임계치 기반 상태 판단 (개선됨: 숫자 추출 로직 강화)"""
         try:
-            numeric_value = float(value.replace('%', '').replace('개', '').strip())
+            # 값에서 숫자만 추출 (예: "master-01: 45%" -> 45.0)
+            clean_val = str(value).replace('%', '').replace('개', '').strip()
             
-            # 0이 정상인 항목들
+            # 정규표현식으로 실수 추출
+            match = re.search(r'(\d+(\.\d+)?)', clean_val)
+            if not match:
+                return CheckStatus.UNKNOWN
+            
+            numeric_value = float(match.group(1))
+            
+            # 0이 정상인 항목들 (낮을수록 좋음)
             zero_is_ok = ['OS-005', 'K8S-008', 'SVC-004', 'SVC-006', 'SVC-007', 'SVC-008', 'SVC-010']
             
             if check_id in zero_is_ok:
                 if numeric_value == 0:
                     return CheckStatus.OK
-                elif numeric_value <= 3:
+                elif numeric_value <= 3: # 허용 범위
                     return CheckStatus.WARNING
                 else:
                     return CheckStatus.CRITICAL
             else:
+                # 일반적인 리소스 (높을수록 위험)
+                # 임계치 80% 미만 OK, 100% 미만 Warning, 그 이상 Critical
                 if numeric_value < threshold * 0.8:
                     return CheckStatus.OK
                 elif numeric_value < threshold:
                     return CheckStatus.WARNING
                 else:
                     return CheckStatus.CRITICAL
-        except (ValueError, AttributeError):
+        except Exception:
             return CheckStatus.UNKNOWN
-    
+        
     def _get_demo_os_data(self, item_id: str) -> tuple:
         """OS 점검 데모 데이터"""
         demo_data = {
@@ -107,7 +122,7 @@ class InfraChecker:
             'OS-010': ('5.15.0-91-generic', CheckStatus.OK, '정상 확인'),
         }
         return demo_data.get(item_id, ('N/A', CheckStatus.UNKNOWN, '데모 데이터 없음'))
-    
+        
     def _get_demo_k8s_data(self, item_id: str) -> tuple:
         """Kubernetes 점검 데모 데이터"""
         demo_data = {
@@ -129,7 +144,7 @@ class InfraChecker:
             'K8S-010': ('8', CheckStatus.OK, '8개 네임스페이스'),
         }
         return demo_data.get(item_id, ('N/A', CheckStatus.UNKNOWN, '데모 데이터 없음'))
-    
+        
     def _get_demo_svc_data(self, item_id: str) -> tuple:
         """서비스 점검 데모 데이터"""
         demo_data = {
@@ -152,6 +167,8 @@ class InfraChecker:
     def run_os_checks(self) -> List[CheckResult]:
         """OS 점검 수행"""
         results = []
+        if 'os' not in self.config['check_items']: return results
+
         for item in self.config['check_items']['os']:
             if self.demo_mode:
                 value, status, message = self._get_demo_os_data(item['id'])
@@ -191,8 +208,9 @@ class InfraChecker:
         return results
     
     def run_k8s_checks(self) -> List[CheckResult]:
-        """Kubernetes 클러스터 점검 수행"""
+        """Kubernetes 클러스터 점검 수행 (수정됨: 002, 003, 008 파싱 로직 개선)"""
         results = []
+        if 'kubernetes' not in self.config['check_items']: return results
         
         kubectl_available = self._check_kubectl_available()
         
@@ -200,18 +218,40 @@ class InfraChecker:
             if self.demo_mode:
                 value, status, message = self._get_demo_k8s_data(item['id'])
             elif not kubectl_available:
-                value = "N/A"
-                status = CheckStatus.UNKNOWN
-                message = "kubectl 명령어 사용 불가"
+                value, status, message = "N/A", CheckStatus.UNKNOWN, "kubectl 명령어 사용 불가"
             else:
                 stdout, stderr, returncode = self._run_command(item['command'])
                 
+                # --- [특수 처리] K8S-008 (NotReady Node) ---
+                # grep이 매칭되지 않으면 returncode가 1이 됨 -> 이는 NotReady가 없다는 뜻이므로 정상(0)으로 처리
+                if item['id'] == 'K8S-008' and returncode != 0 and not stdout:
+                    stdout = "0"
+                    returncode = 0
+
                 if "error" in stderr.lower() or (returncode != 0 and not stdout):
                     status = CheckStatus.UNKNOWN
                     message = f"점검 실패: {stderr[:100]}" if stderr else "명령 실행 오류"
                     value = "N/A"
                 else:
                     value = stdout if stdout and stdout != 'N/A' else "데이터 없음"
+                    
+                    # --- [특수 처리] K8S-002(CPU), K8S-003(Memory) ---
+                    # kubectl top nodes 결과(Table) 파싱
+                    if item['id'] in ['K8S-002', 'K8S-003'] and 'NAME' in stdout:
+                        try:
+                            lines = stdout.strip().split('\n')[1:] # 헤더 제외
+                            max_usage = 0.0
+                            for line in lines:
+                                parts = line.split()
+                                # CPU%(idx 2), MEMORY%(idx 4)
+                                target_idx = 2 if item['id'] == 'K8S-002' else 4
+                                if len(parts) > target_idx:
+                                    usage_str = parts[target_idx].replace('%', '')
+                                    max_usage = max(max_usage, float(usage_str))
+                            value = str(max_usage) # 평가를 위해 최대값으로 교체
+                        except Exception:
+                            pass # 파싱 실패 시 원본 value 사용
+
                     expected = item.get('expected')
                     threshold = item.get('threshold')
                     
@@ -232,14 +272,17 @@ class InfraChecker:
                         else:
                             status = CheckStatus.CRITICAL
                             message = f"다수 항목 이상 ({ok_count}/{total_count})"
+                    
                     elif threshold is not None:
-                        status = self._evaluate_threshold(stdout, threshold, item['id'])
+                        status = self._evaluate_threshold(value, threshold, item['id'])
                         if status == CheckStatus.OK:
                             message = "정상 범위 내"
                         elif status == CheckStatus.WARNING:
                             message = f"임계치({threshold}{item.get('unit','')}) 근접"
-                        else:
+                        elif status == CheckStatus.CRITICAL:
                             message = f"임계치({threshold}{item.get('unit','')}) 초과"
+                        else:
+                            message = "값 확인 불가"
                     else:
                         status = CheckStatus.OK
                         message = "정상 확인"
@@ -254,13 +297,14 @@ class InfraChecker:
                 threshold=item.get('threshold'),
                 unit=item.get('unit', ''),
                 message=message,
-                raw_output=value[:500] if value else ""
+                raw_output=stdout[:500] if stdout else ""
             ))
         return results
     
     def run_service_checks(self) -> List[CheckResult]:
         """K8s 서비스 점검 수행"""
         results = []
+        if 'services' not in self.config['check_items']: return results
         
         kubectl_available = self._check_kubectl_available()
         
@@ -268,9 +312,7 @@ class InfraChecker:
             if self.demo_mode:
                 value, status, message = self._get_demo_svc_data(item['id'])
             elif not kubectl_available:
-                value = "N/A"
-                status = CheckStatus.UNKNOWN
-                message = "kubectl 명령어 사용 불가"
+                value, status, message = "N/A", CheckStatus.UNKNOWN, "kubectl 명령어 사용 불가"
             else:
                 stdout, stderr, returncode = self._run_command(item['command'])
                 
@@ -366,14 +408,15 @@ class InfraChecker:
         
         for r in self.results:
             cat = r.category
-            if r.status == CheckStatus.OK:
-                summary['by_category'][cat]['ok'] += 1
-            elif r.status == CheckStatus.WARNING:
-                summary['by_category'][cat]['warning'] += 1
-            elif r.status == CheckStatus.CRITICAL:
-                summary['by_category'][cat]['critical'] += 1
-            else:
-                summary['by_category'][cat]['unknown'] += 1
+            if cat in summary['by_category']:
+                if r.status == CheckStatus.OK:
+                    summary['by_category'][cat]['ok'] += 1
+                elif r.status == CheckStatus.WARNING:
+                    summary['by_category'][cat]['warning'] += 1
+                elif r.status == CheckStatus.CRITICAL:
+                    summary['by_category'][cat]['critical'] += 1
+                else:
+                    summary['by_category'][cat]['unknown'] += 1
         
         return summary
     
@@ -410,11 +453,12 @@ if __name__ == "__main__":
     if args.demo:
         print("(데모 모드)")
     print("="*60)
-    print(f"총 점검 항목: {summary['total']}")
-    print(f"  - 정상: {summary['ok']}")
-    print(f"  - 경고: {summary['warning']}")
-    print(f"  - 위험: {summary['critical']}")
-    print(f"  - 확인불가: {summary['unknown']}")
+    # 안전한 출력을 위해 get으로 키 접근
+    print(f"총 점검 항목: {summary.get('total', 0)}")
+    print(f"  - 정상: {summary.get('ok', 0)}")
+    print(f"  - 경고: {summary.get('warning', 0)}")
+    print(f"  - 위험: {summary.get('critical', 0)}")
+    print(f"  - 확인불가: {summary.get('unknown', 0)}")
     print("="*60)
     
     for r in results:
