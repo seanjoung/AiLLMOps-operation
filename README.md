@@ -28,6 +28,13 @@ OS, Kubernetes 클러스터, K8s 서비스를 자동으로 점검하고 CSV/DOCX
 
 ---
 
+<img width="1007" height="1010" alt="521780824-2e6216e2-a129-42eb-b81d-bd7c88de0790" src="https://github.com/user-attachments/assets/41414114-f520-418e-92e9-deb2a7a42099" />
+
+
+<img width="859" height="988" alt="521780306-46f72405-b88f-435b-8379-530bceffb47a" src="https://github.com/user-attachments/assets/8c26b1a3-ae2f-475d-8a36-31e06c7a4566" />
+
+
+
 ## ✨ 주요 기능
 
 | 기능 | 설명 |
