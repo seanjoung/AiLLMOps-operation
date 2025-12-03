@@ -46,7 +46,6 @@ class InfraChecker:
             with open(path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f)
         except Exception:
-            # 설정 파일이 없거나 읽기 실패 시 기본 빈 구조 반환 (에러 방지)
             return {'check_items': {'os': [], 'kubernetes': [], 'services': []}}
         
     def _run_command(self, command: str, timeout: int = 30) -> tuple:
@@ -73,9 +72,8 @@ class InfraChecker:
         return returncode == 0
         
     def _evaluate_threshold(self, value: str, threshold: float, check_id: str) -> CheckStatus:
-        """임계치 기반 상태 판단 (개선됨: 숫자 추출 로직 강화)"""
+        """임계치 기반 상태 판단"""
         try:
-            # 값에서 숫자만 추출 (예: "master-01: 45%" -> 45.0)
             clean_val = str(value).replace('%', '').replace('개', '').strip()
             
             # 정규표현식으로 실수 추출
@@ -85,19 +83,16 @@ class InfraChecker:
             
             numeric_value = float(match.group(1))
             
-            # 0이 정상인 항목들 (낮을수록 좋음)
             zero_is_ok = ['OS-005', 'K8S-008', 'SVC-004', 'SVC-006', 'SVC-007', 'SVC-008', 'SVC-010']
             
             if check_id in zero_is_ok:
                 if numeric_value == 0:
                     return CheckStatus.OK
-                elif numeric_value <= 3: # 허용 범위
+                elif numeric_value <= 3:
                     return CheckStatus.WARNING
                 else:
                     return CheckStatus.CRITICAL
             else:
-                # 일반적인 리소스 (높을수록 위험)
-                # 임계치 80% 미만 OK, 100% 미만 Warning, 그 이상 Critical
                 if numeric_value < threshold * 0.8:
                     return CheckStatus.OK
                 elif numeric_value < threshold:
@@ -108,7 +103,6 @@ class InfraChecker:
             return CheckStatus.UNKNOWN
         
     def _get_demo_os_data(self, item_id: str) -> tuple:
-        """OS 점검 데모 데이터"""
         demo_data = {
             'OS-001': ('45', CheckStatus.OK, '정상 범위 내'),
             'OS-002': ('62.5', CheckStatus.OK, '정상 범위 내'),
@@ -124,7 +118,6 @@ class InfraChecker:
         return demo_data.get(item_id, ('N/A', CheckStatus.UNKNOWN, '데모 데이터 없음'))
         
     def _get_demo_k8s_data(self, item_id: str) -> tuple:
-        """Kubernetes 점검 데모 데이터"""
         demo_data = {
             'K8S-001': ('master-01:Ready\nworker-01:Ready\nworker-02:Ready\nworker-03:Ready', 
                         CheckStatus.OK, '모든 노드 정상 (4/4)'),
@@ -146,7 +139,6 @@ class InfraChecker:
         return demo_data.get(item_id, ('N/A', CheckStatus.UNKNOWN, '데모 데이터 없음'))
         
     def _get_demo_svc_data(self, item_id: str) -> tuple:
-        """서비스 점검 데모 데이터"""
         demo_data = {
             'SVC-001': ('nginx-deployment:3/3\napi-server:2/2\nworker-deployment:5/5\nredis:1/1\npostgres:1/1', 
                         CheckStatus.OK, '모든 Deployment 정상 (5개)'),
@@ -165,7 +157,6 @@ class InfraChecker:
         return demo_data.get(item_id, ('N/A', CheckStatus.UNKNOWN, '데모 데이터 없음'))
 
     def run_os_checks(self) -> List[CheckResult]:
-        """OS 점검 수행"""
         results = []
         if 'os' not in self.config['check_items']: return results
 
@@ -208,7 +199,7 @@ class InfraChecker:
         return results
     
     def run_k8s_checks(self) -> List[CheckResult]:
-        """Kubernetes 클러스터 점검 수행 (수정됨: 002, 003, 008 파싱 로직 개선)"""
+        """Kubernetes 클러스터 점검 수행 (수정: K8S-002, 003 파싱 로직 강화)"""
         results = []
         if 'kubernetes' not in self.config['check_items']: return results
         
@@ -222,35 +213,51 @@ class InfraChecker:
             else:
                 stdout, stderr, returncode = self._run_command(item['command'])
                 
-                # --- [특수 처리] K8S-008 (NotReady Node) ---
-                # grep이 매칭되지 않으면 returncode가 1이 됨 -> 이는 NotReady가 없다는 뜻이므로 정상(0)으로 처리
+                # K8S-008: grep이 매칭되지 않으면 returncode가 1이 됨 -> 정상(0) 처리
                 if item['id'] == 'K8S-008' and returncode != 0 and not stdout:
                     stdout = "0"
                     returncode = 0
 
                 if "error" in stderr.lower() or (returncode != 0 and not stdout):
+                    # Metrics Server 미설치 시 에러 메시지 처리
+                    if "metrics api not available" in stderr.lower():
+                        message = "Metrics Server 미설치"
+                    else:
+                        message = f"점검 실패: {stderr[:100]}" if stderr else "명령 실행 오류"
                     status = CheckStatus.UNKNOWN
-                    message = f"점검 실패: {stderr[:100]}" if stderr else "명령 실행 오류"
                     value = "N/A"
                 else:
                     value = stdout if stdout and stdout != 'N/A' else "데이터 없음"
                     
-                    # --- [특수 처리] K8S-002(CPU), K8S-003(Memory) ---
-                    # kubectl top nodes 결과(Table) 파싱
-                    if item['id'] in ['K8S-002', 'K8S-003'] and 'NAME' in stdout:
+                    # --- [수정된 부분] K8S-002(CPU), K8S-003(Memory) 파싱 ---
+                    if item['id'] in ['K8S-002', 'K8S-003']:
                         try:
-                            lines = stdout.strip().split('\n')[1:] # 헤더 제외
+                            lines = stdout.strip().split('\n')
+                            
+                            # 헤더가 있는 경우(NAME, CPU 등으로 시작) 첫 줄 제거
+                            if len(lines) > 0 and ("NAME" in lines[0] or "CPU" in lines[0]):
+                                lines = lines[1:]
+                                
                             max_usage = 0.0
+                            valid_data_found = False
+                            
                             for line in lines:
                                 parts = line.split()
-                                # CPU%(idx 2), MEMORY%(idx 4)
-                                target_idx = 2 if item['id'] == 'K8S-002' else 4
-                                if len(parts) > target_idx:
-                                    usage_str = parts[target_idx].replace('%', '')
-                                    max_usage = max(max_usage, float(usage_str))
-                            value = str(max_usage) # 평가를 위해 최대값으로 교체
+                                # kubectl top nodes 출력은 최소 5개 컬럼: 
+                                # NAME, CPU(cores), CPU%, MEMORY(bytes), MEMORY%
+                                if len(parts) >= 5:
+                                    target_idx = 2 if item['id'] == 'K8S-002' else 4
+                                    val_str = parts[target_idx].replace('%', '')
+                                    try:
+                                        max_usage = max(max_usage, float(val_str))
+                                        valid_data_found = True
+                                    except ValueError:
+                                        continue # 숫자 변환 실패 시 다음 라인(헤더 등)
+                                        
+                            if valid_data_found:
+                                value = str(max_usage)
                         except Exception:
-                            pass # 파싱 실패 시 원본 value 사용
+                            pass # 파싱 실패 시 원본 문자열 유지 -> evaluate에서 UNKNOWN 처리
 
                     expected = item.get('expected')
                     threshold = item.get('threshold')
@@ -282,7 +289,11 @@ class InfraChecker:
                         elif status == CheckStatus.CRITICAL:
                             message = f"임계치({threshold}{item.get('unit','')}) 초과"
                         else:
-                            message = "값 확인 불가"
+                            # 2,3번이 여기서 걸릴 경우 메시지를 구체화
+                            if item['id'] in ['K8S-002', 'K8S-003']:
+                                message = "Metrics 데이터 파싱 실패 (Metrics Server 확인 필요)"
+                            else:
+                                message = "값 확인 불가"
                     else:
                         status = CheckStatus.OK
                         message = "정상 확인"
@@ -302,7 +313,6 @@ class InfraChecker:
         return results
     
     def run_service_checks(self) -> List[CheckResult]:
-        """K8s 서비스 점검 수행"""
         results = []
         if 'services' not in self.config['check_items']: return results
         
@@ -381,7 +391,6 @@ class InfraChecker:
         return results
     
     def run_all_checks(self) -> List[CheckResult]:
-        """모든 점검 수행"""
         self.results = []
         self.results.extend(self.run_os_checks())
         self.results.extend(self.run_k8s_checks())
@@ -389,7 +398,6 @@ class InfraChecker:
         return self.results
     
     def get_summary(self) -> Dict[str, Any]:
-        """점검 결과 요약"""
         if not self.results:
             return {}
         
@@ -421,7 +429,6 @@ class InfraChecker:
         return summary
     
     def to_dict(self) -> List[Dict]:
-        """결과를 딕셔너리 리스트로 변환"""
         return [
             {
                 '점검ID': r.check_id,
@@ -453,7 +460,6 @@ if __name__ == "__main__":
     if args.demo:
         print("(데모 모드)")
     print("="*60)
-    # 안전한 출력을 위해 get으로 키 접근
     print(f"총 점검 항목: {summary.get('total', 0)}")
     print(f"  - 정상: {summary.get('ok', 0)}")
     print(f"  - 경고: {summary.get('warning', 0)}")
