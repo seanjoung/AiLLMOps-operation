@@ -1,0 +1,69 @@
+﻿# 2025년 49주차 인프라 정기점검 보고서
+# 생성일시: 2025-12-03 12:33:49
+# 회사: Your Company
+# 담당팀: Infrastructure Team
+# 총 점검항목: 30개
+# 정상: 27 / 경고: 0 / 위험: 0 / 확인불가: 3
+
+점검ID,점검항목,카테고리,설명,상태,측정값,임계치,결과메시지,점검시간
+OS-001,디스크 사용량,OS,루트 파일시스템 디스크 사용률 확인,정상,46,80%,정상 범위 내,2025-12-03T12:33:47.361248
+OS-002,메모리 사용량,OS,시스템 메모리 사용률 확인,정상,17.7,85%,정상 범위 내,2025-12-03T12:33:47.366595
+OS-003,CPU 사용량,OS,CPU 평균 사용률 확인,정상,0,90%,정상 범위 내,2025-12-03T12:33:47.539648
+OS-004,시스템 업타임,OS,시스템 가동 시간 확인,정상,"up 1 week, 5 days, 10 hours, 56 minutes",-,정상 확인,2025-12-03T12:33:47.544270
+OS-005,좀비 프로세스,OS,좀비 프로세스 개수 확인,정상,0,-,정상 범위 내,2025-12-03T12:33:47.559481
+OS-006,로드 애버리지,OS,시스템 로드 애버리지 (1분),정상,0.09,4.0,정상 범위 내,2025-12-03T12:33:47.563718
+OS-007,Swap 사용량,OS,Swap 메모리 사용률 확인,정상,0,50%,정상 범위 내,2025-12-03T12:33:47.567848
+OS-008,열린 파일 수,OS,시스템 전체 열린 파일 디스크립터 수,정상,1536,50000개,정상 범위 내,2025-12-03T12:33:47.571517
+OS-009,네트워크 연결 수,OS,ESTABLISHED 상태 TCP 연결 수,정상,6,1000개,정상 범위 내,2025-12-03T12:33:47.578259
+OS-010,커널 버전,OS,현재 커널 버전 정보,정상,5.14.0-570.17.1.el9_6.x86_64,-,정상 확인,2025-12-03T12:33:47.583873
+K8S-001,노드 상태,Kubernetes,모든 노드의 Ready 상태 확인,정상,"ssg-master01:Ready
+ssg-master02:Ready
+ssg-master03:Ready
+ssg-worker01:Ready
+ssg-worker02:Ready
+ssg-worker03:Ready",-,모든 항목 정상 (6/6),2025-12-03T12:33:47.667546
+K8S-002,노드 CPU 사용량,Kubernetes,노드별 CPU 사용률,확인불가,데이터 없음,80%,임계치(80%) 초과,2025-12-03T12:33:47.733013
+K8S-003,노드 메모리 사용량,Kubernetes,노드별 메모리 사용률,확인불가,데이터 없음,80%,임계치(80%) 초과,2025-12-03T12:33:47.799297
+K8S-004,kube-system Pod 상태,Kubernetes,kube-system 네임스페이스 Pod 상태,정상,"cilium-7ftrl:Running
+cilium-8jdjz:Running
+cilium-envoy-4s5x8:Running
+cilium-envoy-7jzfk:Running
+cilium-envoy-9vhxv:Running
+cilium-envoy-rzfd8:Running
+cilium-envoy-zsjql:Running
+cilium-envoy-zz5mj:Running
+cilium-fq7pp:Running
+cilium-j46xf:Running
+cilium-operator-694f9f5d8d-42zb4:Running
+cilium-operat",-,모든 항목 정상 (35/35),2025-12-03T12:33:47.904586
+K8S-005,PV 상태,Kubernetes,PersistentVolume 바인딩 상태,정상,pvc-b41b76a9-64b6-4231-8bd0-d06922ee12e8:Bound,-,모든 항목 정상 (1/1),2025-12-03T12:33:47.972039
+K8S-006,PVC 상태,Kubernetes,PersistentVolumeClaim 바인딩 상태,정상,data-my-mariadb-0:Bound,-,모든 항목 정상 (1/1),2025-12-03T12:33:48.043084
+K8S-007,클러스터 Warning 이벤트,Kubernetes,최근 1시간 Warning 이벤트 수,정상,0,10개,정상 범위 내,2025-12-03T12:33:48.108629
+K8S-008,NotReady 노드 수,Kubernetes,NotReady 상태 노드 개수,확인불가,"0
+0",-,임계치(0개) 초과,2025-12-03T12:33:48.188259
+K8S-009,클러스터 버전,Kubernetes,Kubernetes 클러스터 버전,정상,데이터 없음,-,정상 확인,2025-12-03T12:33:48.238681
+K8S-010,네임스페이스 수,Kubernetes,전체 네임스페이스 개수,정상,9,-,정상 확인,2025-12-03T12:33:48.300756
+SVC-001,Deployment 상태,Services,모든 Deployment의 Ready 상태,정상,"cilium-operator:2/2/2
+coredns:2/2/2
+dns-autoscaler:1/1/1
+controller:1/1/1
+csi-cephfsplugin-provisioner:2/2/2
+csi-rbdplugin-provisioner:2/2/2
+rook-ceph-crashcollector-ssg-worker01:1/1/1
+rook-ceph-crashcollector-ssg-worker02:1/1/1
+rook-ceph-crashcollector-ssg-worker03:1/1/1
+rook-ceph-exporter-ssg-work",-,모든 리소스 정상 (25개),2025-12-03T12:33:48.393737
+SVC-002,StatefulSet 상태,Services,모든 StatefulSet의 Ready 상태,정상,my-mariadb:1/1,-,모든 리소스 정상 (1개),2025-12-03T12:33:48.462046
+SVC-003,DaemonSet 상태,Services,모든 DaemonSet의 Ready 상태,정상,"cilium:6/6
+cilium-envoy:6/6
+kube-proxy:6/6
+speaker:6/6
+csi-cephfsplugin:3/3
+csi-rbdplugin:3/3",-,모든 리소스 정상 (6개),2025-12-03T12:33:48.534808
+SVC-004,Service Endpoints,Services,Endpoint가 없는 Service 확인,정상,0,-,정상,2025-12-03T12:33:48.598899
+SVC-005,Ingress 상태,Services,Ingress 리소스 개수,정상,0,-,정상 확인,2025-12-03T12:33:48.674059
+SVC-006,Pod 재시작 횟수 (높음),Services,재시작 5회 이상 Pod 수,정상,0,-,정상,2025-12-03T12:33:48.817683
+SVC-007,Pending Pod 수,Services,Pending 상태 Pod 개수,정상,0,-,정상,2025-12-03T12:33:48.878939
+SVC-008,Failed Pod 수,Services,Failed 상태 Pod 개수,정상,0,-,정상,2025-12-03T12:33:48.941037
+SVC-009,CronJob 상태,Services,전체 CronJob 개수,정상,0,-,정상 확인,2025-12-03T12:33:49.012212
+SVC-010,Job 실패 수,Services,Failed 상태 Job 개수,정상,0,-,정상,2025-12-03T12:33:49.100245
