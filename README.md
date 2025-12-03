@@ -672,9 +672,9 @@ MIT License - 자유롭게 사용, 수정, 배포할 수 있습니다.
 
 ## 👨‍💻 작성자
 
-- 이름: Your Name
-- Email: your-email@example.com
-- GitHub: [@your-username](https://github.com/your-username)
+- 이름: 정휘원 hwiwon joung (Sean)
+- Email: chicagomenbusy@gmail.com
+- GitHub: [@SeanJoung](https://github.com/seanjoung/AiLLMOps-operation/)
 
 ---
 
