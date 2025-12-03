@@ -1,0 +1,65 @@
+﻿# 2025년 49주차 인프라 정기점검 보고서
+# 생성일시: 2025-12-03 07:10:51
+# 회사: Your Company
+# 담당팀: Infrastructure Team
+# 총 점검항목: 30개
+# 정상: 30 / 경고: 0 / 위험: 0 / 확인불가: 0
+
+점검ID,점검항목,카테고리,설명,상태,측정값,임계치,결과메시지,점검시간
+OS-001,디스크 사용량,OS,루트 파일시스템 디스크 사용률 확인,정상,45,80%,정상 범위 내,2025-12-03T07:10:51.365331
+OS-002,메모리 사용량,OS,시스템 메모리 사용률 확인,정상,62.5,85%,정상 범위 내,2025-12-03T07:10:51.365348
+OS-003,CPU 사용량,OS,CPU 평균 사용률 확인,정상,23,90%,정상 범위 내,2025-12-03T07:10:51.365354
+OS-004,시스템 업타임,OS,시스템 가동 시간 확인,정상,"up 15 days, 4 hours, 32 minutes",-,정상 확인,2025-12-03T07:10:51.365357
+OS-005,좀비 프로세스,OS,좀비 프로세스 개수 확인,정상,0,-,좀비 프로세스 없음,2025-12-03T07:10:51.365361
+OS-006,로드 애버리지,OS,시스템 로드 애버리지 (1분),정상,1.25,4.0,정상 범위 내,2025-12-03T07:10:51.365365
+OS-007,Swap 사용량,OS,Swap 메모리 사용률 확인,정상,12.3,50%,정상 범위 내,2025-12-03T07:10:51.365368
+OS-008,열린 파일 수,OS,시스템 전체 열린 파일 디스크립터 수,정상,3456,50000개,정상 범위 내,2025-12-03T07:10:51.365371
+OS-009,네트워크 연결 수,OS,ESTABLISHED 상태 TCP 연결 수,정상,128,1000개,정상 범위 내,2025-12-03T07:10:51.365374
+OS-010,커널 버전,OS,현재 커널 버전 정보,정상,5.15.0-91-generic,-,정상 확인,2025-12-03T07:10:51.365377
+K8S-001,노드 상태,Kubernetes,모든 노드의 Ready 상태 확인,정상,"master-01:Ready
+worker-01:Ready
+worker-02:Ready
+worker-03:Ready",-,모든 노드 정상 (4/4),2025-12-03T07:10:51.365428
+K8S-002,노드 CPU 사용량,Kubernetes,노드별 CPU 사용률,정상,"master-01:32%
+worker-01:45%
+worker-02:38%
+worker-03:52%",80%,모든 노드 CPU 정상,2025-12-03T07:10:51.365433
+K8S-003,노드 메모리 사용량,Kubernetes,노드별 메모리 사용률,정상,"master-01:58%
+worker-01:62%
+worker-02:55%
+worker-03:71%",80%,모든 노드 메모리 정상,2025-12-03T07:10:51.365436
+K8S-004,kube-system Pod 상태,Kubernetes,kube-system 네임스페이스 Pod 상태,정상,"coredns-5d78c9869d-abc12:Running
+coredns-5d78c9869d-def34:Running
+etcd-master-01:Running
+kube-apiserver-master-01:Running
+kube-controller-manager-master-01:Running
+kube-proxy-xxxxx:Running
+kube-scheduler-master-01:Running",-,모든 시스템 Pod 정상 (7/7),2025-12-03T07:10:51.365440
+K8S-005,PV 상태,Kubernetes,PersistentVolume 바인딩 상태,정상,"pv-data-01:Bound
+pv-data-02:Bound
+pv-logs-01:Bound",-,모든 PV 정상 (3/3),2025-12-03T07:10:51.365443
+K8S-006,PVC 상태,Kubernetes,PersistentVolumeClaim 바인딩 상태,정상,"data-pvc-01:Bound
+data-pvc-02:Bound
+logs-pvc-01:Bound",-,모든 PVC 정상 (3/3),2025-12-03T07:10:51.365446
+K8S-007,클러스터 Warning 이벤트,Kubernetes,최근 1시간 Warning 이벤트 수,정상,3,10개,경고 이벤트 정상 범위,2025-12-03T07:10:51.365450
+K8S-008,NotReady 노드 수,Kubernetes,NotReady 상태 노드 개수,정상,0,-,NotReady 노드 없음,2025-12-03T07:10:51.365453
+K8S-009,클러스터 버전,Kubernetes,Kubernetes 클러스터 버전,정상,v1.28.4,-,정상 확인,2025-12-03T07:10:51.365456
+K8S-010,네임스페이스 수,Kubernetes,전체 네임스페이스 개수,정상,8,-,8개 네임스페이스,2025-12-03T07:10:51.365459
+SVC-001,Deployment 상태,Services,모든 Deployment의 Ready 상태,정상,"nginx-deployment:3/3
+api-server:2/2
+worker-deployment:5/5
+redis:1/1
+postgres:1/1",-,모든 Deployment 정상 (5개),2025-12-03T07:10:51.365491
+SVC-002,StatefulSet 상태,Services,모든 StatefulSet의 Ready 상태,정상,"mysql:1/1
+redis:3/3
+elasticsearch:3/3",-,모든 StatefulSet 정상 (3개),2025-12-03T07:10:51.365495
+SVC-003,DaemonSet 상태,Services,모든 DaemonSet의 Ready 상태,정상,"fluentd:4/4
+node-exporter:4/4
+kube-proxy:4/4",-,모든 DaemonSet 정상 (3개),2025-12-03T07:10:51.365502
+SVC-004,Service Endpoints,Services,Endpoint가 없는 Service 확인,정상,0,-,Endpoint 없는 Service 없음,2025-12-03T07:10:51.365505
+SVC-005,Ingress 상태,Services,Ingress 리소스 개수,정상,5,-,5개 Ingress 리소스,2025-12-03T07:10:51.365509
+SVC-006,Pod 재시작 횟수 (높음),Services,재시작 5회 이상 Pod 수,정상,0,-,재시작 과다 Pod 없음,2025-12-03T07:10:51.365512
+SVC-007,Pending Pod 수,Services,Pending 상태 Pod 개수,정상,0,-,Pending Pod 없음,2025-12-03T07:10:51.365515
+SVC-008,Failed Pod 수,Services,Failed 상태 Pod 개수,정상,0,-,Failed Pod 없음,2025-12-03T07:10:51.365518
+SVC-009,CronJob 상태,Services,전체 CronJob 개수,정상,3,-,3개 CronJob,2025-12-03T07:10:51.365521
+SVC-010,Job 실패 수,Services,Failed 상태 Job 개수,정상,0,-,Failed Job 없음,2025-12-03T07:10:51.365524
